@@ -1,0 +1,19 @@
+# Python caches and local environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local editor / OS files
+.DS_Store
+*~
+*.swp
+
+# Locally supplied journal articles (not redistributed with the project).
+/kállay_and_surján_2001-higher_excitations_in_coupled-cluster_theory.pdf
+/musiał_et_al_2002-diagrammatic_structure_of_general_coupled_cluster_equations.pdf
+
+# The generated manuscript and example PDFs are intentionally versioned.
