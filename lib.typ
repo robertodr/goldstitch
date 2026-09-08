@@ -1001,6 +1001,20 @@
   (vertices: vertices, bars: bars, segments: segments, group-x: group-x)
 }
 
+// Physical wave dimensions keep S distinct even on a short singles vertex.
+// A fixed segment count avoids the preset decoration's minimum-path-length
+// restriction; the filled square is painted above the wave and fermion joins.
+#let _cluster-decoration(family, width) = if family == "s" {
+  fletcher.cetz.decorations.wave.with(amplitude: 1.6pt,
+    segments: calc.max(2, int(calc.round(width / 4pt))))
+} else { none }
+
+#let _vertex-marker(family) = (
+  shape: if family == "s" { "rect" } else { "circle" },
+  fill: if family == "h" { white } else { black },
+  stroke: if family == "h" { 0.65pt + black } else { none },
+)
+
 #let _operator-goldstone(
   model, spacing: 7.5mm, level-gap: 4.5mm, stroke: 0.65pt,
   labels: false, excitation-symbol: $T$,
@@ -1019,11 +1033,16 @@
   for bar in layout.bars {
     let left = (bar.xs.first(), bar.y)
     let right = (bar.xs.last(), bar.y)
+    let width = (bar.xs.last() - bar.xs.first()) * spacing
     if bar.rank == 1 {
-      left = (rel: (180deg, t1-bar-extension), to: left)
-      right = (rel: (0deg, t1-bar-extension), to: right)
+      // Leave a visible wave on each side of the filled S1 square.
+      let extension = if bar.family == "s" { 5pt } else { t1-bar-extension }
+      width = 2 * extension
+      left = (rel: (180deg, extension), to: left)
+      right = (rel: (0deg, extension), to: right)
     }
-    objects.push(edge(left, right, stroke: stroke, snap-to: (none, none), layer: 2))
+    objects.push(edge(left, right, stroke: stroke, snap-to: (none, none),
+      decorations: _cluster-decoration(bar.family, width), layer: 2))
     if labels {
       let symbol = if bar.family == "t" { excitation-symbol } else { $S$ }
       let offset = if bar.family == "t" { 0.45 } else { -0.45 }
@@ -1036,9 +1055,8 @@
   objects.push(edge((left, 0), (right, 0), stroke: 0.7 * stroke,
     dash: (array: (1pt, 1.25pt), phase: 0pt), snap-to: (none, none), layer: 1))
   for vertex in layout.vertices {
-    let h = vertex.family == "h"
-    objects.push(node(vertex.at, shape: "circle", radius: 1.275pt,
-      fill: if h { white } else { black }, stroke: if h { 0.65pt + black } else { none },
+    objects.push(node(vertex.at, radius: 1.275pt,
+      .._vertex-marker(vertex.family),
       inset: 0pt, snap: false, layer: 4))
   }
   if labels {

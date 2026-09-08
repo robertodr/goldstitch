@@ -1097,7 +1097,9 @@ nested ECC tuples as well as equation diagrams. The extended layout uses
 explicit creation/annihilation ports, preserves every incidence entry, and
 leaves unused ports as short external stubs. $T$ vertices lie below $H$ and
 $S$ vertices above it; $H$ is displaced sideways when necessary to keep
-$T$–$S$ edges away from its vertices. The original equation layout remains
+$T$–$S$ edges away from its vertices. Solid lines with filled circles denote
+$T$, wavy lines with filled squares denote $S$, and dashed lines with open
+circles denote $H$. The original equation layout remains
 the default for undecorated, fully contracted Hamiltonian annihilation sectors.
 Rendering applies neither an energy-connectivity filter nor a coordinate
 transformation. Tests reconstruct the incidence matrices and signatures from

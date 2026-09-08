@@ -153,6 +153,29 @@ class TypstTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_s_vertex_styling(self):
+        result = self.compile_source(
+            '#import "/lib.typ": _cluster-decoration, _vertex-marker\n'
+            '#assert(_vertex-marker("s").shape == "rect")\n'
+            '#assert(_vertex-marker("s").fill == black)\n'
+            '#assert(_vertex-marker("s").stroke == none)\n'
+            '#assert(_vertex-marker("h").shape == "circle")\n'
+            '#assert(_vertex-marker("h").fill == white)\n'
+            '#assert(_vertex-marker("h").stroke != none)\n'
+            '#assert(_vertex-marker("t").shape == "circle")\n'
+            '#assert(_vertex-marker("t").fill == black)\n'
+            '#assert(_vertex-marker("t").stroke == none)\n'
+            '#assert(_cluster-decoration("t", 10pt) == none)\n'
+            '#for width in (5pt, 10pt, 24pt) {\n'
+            '  assert(type(_cluster-decoration("s", width)) == function)\n'
+            '}\n'
+            '#goldstone(("11", ((1, ((1, 1),)),)), '
+            'labels: true, t1-bar-extension: 0.2pt)\n'
+            '#goldstone(("12", ((3, ((2, 2),)),)), '
+            'labels: true, spacing: 6mm, level-gap: 8mm)\n'
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_invalid_ecc_and_modes(self):
         for code, message in (
             ('(base: "12")', 'needs `base` and `rows`'),

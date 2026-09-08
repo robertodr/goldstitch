@@ -15,7 +15,8 @@
 Signatures are (created particles, created holes, annihilated particles,
 annihilated holes), all relative to the reference. Open operator legs are
 short stubs: creation upward, annihilation downward. All arrows are shown
-in the operator/ECC layout. Crossings without a dot are not contractions.
+in the operator/ECC layout. $T$ uses solid lines and filled circles; $S$ uses
+wavy lines and filled squares. Crossings without a marker are not contractions.
 
 == Bare Hamiltonian: all thirteen vertices
 

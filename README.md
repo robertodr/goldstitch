@@ -134,9 +134,11 @@ Hamiltonian vertices. Creation legs are short upward stubs; annihilation
 legs are short downward stubs. They do not share a projection boundary.
 Particle arrows run from creation to annihilation endpoints; hole arrows
 run oppositely. Coincident opposite-species contractions form curved lenses.
-Crossings without a dot are **not** vertices. Both cluster families use solid
-bars with one filled fermionic site per rank, and H retains its dashed line
-and open sites. Dense diagrams can still have crossings.
+Crossings without a marker are **not** vertices. T uses solid bars with filled
+black circles; S uses **wavy lines with filled black squares**, with one fermionic
+site per rank. S1 lines extend 5 pt on either side of their marker so the wave
+remains visible. H retains its dashed line and open circles. Dense diagrams
+can still have crossings.
 
 Styling options above also apply here; the layered defaults are
 `arrows: "all"` and `mark-scale: 85%`. Use `labels: true` for T/S ranks and H's
