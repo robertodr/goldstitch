@@ -1,6 +1,18 @@
 # ccdiagrams
 
-A Typst module and Python generator for antisymmetrized Goldstone diagrams of CC equations, similarity-transformed Hamiltonians, and extended coupled cluster (ECC). Diagrams are specified with the compact integer notation of Kállay and Surján and rendered with [Fletcher](https://typst.app/universe/package/fletcher/).
+A **Typst drawing library** for antisymmetrized Goldstone diagrams of CC equations, similarity-transformed Hamiltonians, and extended coupled cluster (ECC). Diagrams use Kállay–Surján integer notation and are rendered with [Fletcher](https://typst.app/universe/package/fletcher/). Drawing requires Typst, not Python.
+
+The project is maintained in three independent sibling repositories:
+
+| Repository | Contents |
+|:-----------|:---------|
+| **ccdiagrams** (this repository) | `lib.typ`, Typst package metadata, examples, rendering tests |
+| [ccdiagrams-generator](../ccdiagrams-generator/) | Python generator, CLI, enumeration and counting tests |
+| [ccdiagrams-paper](../ccdiagrams-paper/) | Manuscript, bibliography, compiled PDF, reproduction instructions |
+
+The existing combined-project Git history remains here. The generator and paper started with snapshots of the split state; their current sources are no longer duplicated here. Repository links above assume sibling checkouts; no remote hosting is configured by this split.
+
+## Quick start
 
 ```typ
 #import "lib.typ": goldstone, kallay-label
@@ -12,7 +24,16 @@ A Typst module and Python generator for antisymmetrized Goldstone diagrams of CC
 #goldstone("220 222 10")
 ```
 
-See [`examples/basic.typ`](examples/basic.typ) for the resulting four diagrams.
+See [`examples/basic.typ`](examples/basic.typ) and its [PDF](examples/basic.pdf).
+From this repository root:
+
+```sh
+typst compile --root . examples/basic.typ examples/basic.pdf
+typst compile --root . examples/operators.typ examples/operators.pdf
+```
+
+The library requires Typst 0.13.0 or later and imports `@preview/fletcher:0.5.8`.
+First use needs access to the Typst package registry unless the dependency is already cached. Development tests were last run with Typst 0.15.1.
 
 ## Kállay notation
 
@@ -48,25 +69,18 @@ Before adding any S vertices, `Tᵢ` has `ιᵢ − πᵢ` internal hole lines, 
 | 11 | `f_ai` | 0 | 0 |
 | 12 | `<ab‖ij>` | 0 | 0 |
 
-These counts give the lower annihilation capacities in Fig. 1, not all orbital indices of the matrix element. Equation diagrams use all these capacities; operator diagrams may leave some uncontracted. Vertices 11 and 12 are bare contributions and can be written simply as `"11"` and `"12"`.
+These counts give the lower annihilation capacities, not all orbital indices of the matrix element. Equation diagrams use all these capacities; operator diagrams may leave some uncontracted. Vertices 11 and 12 are bare contributions, written simply as `"11"` and `"12"`.
 
 All fields must be non-negative integers, and `η` must be between 0 and 12. Amplitude triplets are ordered lexicographically: excitation levels are nondecreasing; equal excitation levels have nondecreasing internal-line counts; and equal excitation levels and internal-line counts have nondecreasing internal particle-line counts.
 
-Trailing `000` amplitudes can be omitted, so `"220 4"` and `"220 000 000 000 4"` are equivalent.
-
-For fields greater than nine, delimit a triplet with `/`, `:`, or `,`:
+Trailing `000` amplitudes can be omitted, so `"220 4"` and `"220 000 000 000 4"` are equivalent. For fields greater than nine, delimit a triplet with `/`, `:`, or `,`. Structured input is also accepted:
 
 ```typ
 #goldstone("10/1/1 0")
-```
-
-Structured input is also accepted:
-
-```typ
 #goldstone(((2, 2, 0), (0, 0, 0), 4))
 ```
 
-`goldstone` checks that amplitude ranks and line counts are valid and do not exceed the selected interaction's particle/hole capacities. Use `mode: "equation"` to require complete contraction of the Hamiltonian annihilation lines.
+`goldstone` checks that amplitude ranks and line counts are valid and do not exceed the interaction's particle/hole capacities. Use `mode: "equation"` to require complete contraction of the Hamiltonian annihilation lines.
 
 ## Styling
 
@@ -90,8 +104,7 @@ Structured input is also accepted:
 
 ## Operator and ECC rendering
 
-The same `goldstone` function accepts partial-contraction tuples and nested
-ECC tuples, without converting either to projected equation diagrams:
+The same `goldstone` function accepts partial-contraction tuples and nested ECC tuples, without converting either to projected equation diagrams:
 
 ```typ
 #import "lib.typ": goldstone, diagram-signature
@@ -108,191 +121,30 @@ ECC tuples, without converting either to projected equation diagrams:
 #assert(diagram-signature(ecc) == (0, 0, 0, 0))
 ```
 
-ECC input is `(base, rows)`, where each row is
-`(rank, ((p_H, h_H), (p_T1, h_T1), ...))`. The base accepts any Kállay form
-above, including compact strings. A dictionary `(base: ..., rows: ...)` is
-also accepted. Columns refer to H followed by **active** T vertices, not the
-four padded slots. S rows have no padding or four-vertex limit. The renderer
-preserves their supplied order and incidence, checking connectivity, row
-rank bounds, and cumulative source capacities. `parse-diagram` returns the
-validated model; `diagram-signature` returns the four external quasiparticle
-counts. `kallay-label` also accepts partially contracted base tuples.
+ECC input is `(base, rows)`, where each row is `(rank, ((p_H, h_H), (p_T1, h_T1), ...))`. The base accepts any Kállay form above, including compact strings. A dictionary `(base: ..., rows: ...)` is also accepted. Columns refer to H followed by **active** T vertices, not the four padded slots. S rows have no padding or four-vertex limit. The renderer preserves their supplied order and incidence, checking connectivity, row rank bounds, and cumulative source capacities. `parse-diagram` returns the validated model; `diagram-signature` returns the four external quasiparticle counts. `kallay-label` also accepts partially contracted base tuples.
 
 Layout selection:
 
-- `mode: "auto"` (default): preserves the existing equation layout when there
-  are no S vertices and all H annihilation lines are contracted; otherwise
-  uses the layered operator/ECC layout.
-- `mode: "operator"`: forces the layered layout, including for scalar and
-  pure-creation sectors.
+- `mode: "auto"` (default): preserves the equation layout when there are no S vertices and all H annihilation lines are contracted; otherwise uses the layered operator/ECC layout.
+- `mode: "operator"`: forces the layered layout, including scalar and pure-creation sectors.
 - `mode: "ecc"`: requires nested ECC input and uses the layered layout.
 - `mode: "equation"`: retains strict equation validation and the old layout.
 
-The layered layout puts T below H and S above H. When both cluster families
-are present, H moves to the side so T–S edges do not pass through unrelated
-Hamiltonian vertices. Creation legs are short upward stubs; annihilation
-legs are short downward stubs. They do not share a projection boundary.
-Particle arrows run from creation to annihilation endpoints; hole arrows
-run oppositely. Coincident opposite-species contractions form curved lenses.
-Crossings without a marker are **not** vertices. T uses solid bars with filled
-black circles; S uses **wavy lines with filled black squares**, with one fermionic
-site per rank. S1 lines extend 5 pt on either side of their marker so the wave
-remains visible. H retains its dashed line and open circles. Dense diagrams
-can still have crossings.
+The layered layout puts T below H and S above H. When both cluster families are present, H moves to the side so T–S edges do not pass through unrelated Hamiltonian vertices. Creation legs are short upward stubs; annihilation legs are short downward stubs. They do not share a projection boundary. Particle arrows run from creation to annihilation endpoints; hole arrows run oppositely. Coincident opposite-species contractions form curved lenses. Crossings without a marker are **not** vertices. T uses solid bars with filled black circles; S uses **wavy lines with filled black squares**, with one fermionic site per rank. S1 lines extend 5 pt on either side of their marker so the wave remains visible. H retains its dashed line and open circles. Dense diagrams can still have crossings.
 
-Styling options above also apply here; the layered defaults are
-`arrows: "all"` and `mark-scale: 85%`. Use `labels: true` for T/S ranks and H's
-vertex number. For canonical-coordinate energy graphs, you can additionally
-set `excitation-symbol: $Sigma$` to label the excitation bars accordingly.
-This changes labels only: rendering neither filters diagrams nor performs an
-amplitude-coordinate transformation.
+Styling options above also apply here; the layered defaults are `arrows: "all"` and `mark-scale: 85%`. Use `labels: true` for T/S ranks and H's vertex number. For canonical-coordinate energy graphs, set `excitation-symbol: $Sigma$` to label the excitation bars accordingly. This changes labels only: rendering neither filters diagrams nor performs an amplitude-coordinate transformation.
 
-See [`examples/operators.typ`](examples/operators.typ) and its
-[PDF](examples/operators.pdf) for all thirteen bare vertices, partial
-contractions, inequivalent ECC scalar graphs, and a twelve-S-vertex example.
+See [`examples/operators.typ`](examples/operators.typ) and its [PDF](examples/operators.pdf) for all thirteen bare vertices, partial contractions, inequivalent ECC scalar graphs, and a twelve-S-vertex example.
 
-## Generating tuples
+## Generating input in the separate repository
 
-`generate_kallay.py` is the single generator for all constructions (the former
-`generate_ecc.py` has been merged into it; import ECC functions from
-`generate_kallay` now). By default it generates every connected CC tuple for a truncation level,
-grouped by equation rank (including the correlation-energy equation, `k = 0`).
-The scalar reference energy is excluded; truncation level zero returns `{0: []}`.
+The Python generator and its APIs now live in [ccdiagrams-generator](../ccdiagrams-generator/). No Python module is bundled with this library. With sibling checkouts, run from this repository root:
 
 ```sh
-python3 generate_kallay.py 2
-python3 generate_kallay.py 3 --equation 2 --json
+python3 ../ccdiagrams-generator/generate_kallay.py 1 --mode ecc --json > ecc.json
 ```
 
-It can also be imported:
-
-```py
-from generate_kallay import generate_diagrams, generate_equation
-
-ccsd = generate_diagrams(2)       # {0: [...], 1: [...], 2: [...]}
-doubles = generate_equation(2, 2)
-```
-
-Every returned diagram contains four amplitude triplets, with trailing
-`(0, 0, 0)` padding, followed by the Hamiltonian vertex number.
-
-### Full similarity-transformed Hamiltonian
-
-The Python API also generates every expanded connected antisymmetrized
-operator topology of `exp(-T) H_N exp(T)`, including external annihilation
-lines. It uses the same tuple format: the remaining Hamiltonian lines are
-inferred from `η` and the contracted-line counts.
-
-```py
-from generate_kallay import (
-    generate_equation,
-    generate_similarity_transformed,
-    count_similarity_transformed,
-    external_signature,
-)
-
-hbar = generate_similarity_transformed(2)
-assert len(hbar) == count_similarity_transformed(2) == 183
-# Signature order: created particles, created holes,
-#                  annihilated particles, annihilated holes (quasiparticles).
-doubles = [d for d in hbar if external_signature(d) == (2, 2, 0, 0)]
-assert doubles == generate_equation(2, 2)
-```
-
-For `n >= 1`, the total is
-`(n**4 + 18*n**3 + 87*n**2 + 106*n + 12) // 4`.
-At `n = 0` it is 13: all bare one- and two-body Hamiltonian vertices.
-The generated correlation-energy scalar is included; the reference energy
-is excluded. Counts are for unfactorized topologies before imposing the CC
-residual equations, not labelled Wick contractions or numerical operations.
-
-Generate these operator tuples from the CLI with
-`python3 generate_kallay.py 2 --mode hbar --json`. The JSON output is an array
-of diagrams, directly usable with Typst's `json()` and `goldstone`.
-See [`diagram-count-derivation.typ`](diagram-count-derivation.typ) and its
-[PDF](diagram-count-derivation.pdf) for the construction algorithm,
-sector-resolved generating function, and proofs of both counting formulas.
-
-### Extended coupled cluster
-
-The same [`generate_kallay.py`](generate_kallay.py) extends the construction to
-`exp(S) exp(-T) H_N exp(T) exp(-S)`, with the **same truncation rank `n`**
-for pure excitation `T` and pure deexcitation `S`. Both retain all ranks
-`1..n`; their amplitudes remain independent, so this does not mean `S=T†`:
-
-```py
-from generate_kallay import (
-    generate_ecc,
-    generate_ecc_energy,
-    ecc_external_signature,
-)
-
-operator = generate_ecc(n=1)
-assert len(operator) == 395
-assert sum(ecc_external_signature(d) == (0, 0, 0, 0) for d in operator) == 20
-assert len(generate_ecc_energy(2)) == 1503
-```
-
-Each ECC tuple is `(base, s_rows)`. `base` is the ordinary padded
-Hamiltonian–T tuple; each S row is `(rank, ((p_H, h_H), (p_T1, h_T1), ...))`,
-with columns for H and each **active** T vertex. Its incidence entries,
-not just row totals, are needed to identify the graph. S rows are unpadded.
-Canonicalization quotients row permutations and simultaneous permutations
-of columns belonging to identical base T triplets. The crude four-slot bound
-is 24 permutations, but the Hamiltonian's particle/hole capacities leave
-at most **four admissible permutations**.
-
-**Connectivity distinction:** in the literal operator every T must touch H,
-and every S must touch H or at least one T. The stronger rule that each S
-must touch H or **two distinct T vertices** applies to the energy in
-*reparameterized canonical ECC amplitude coordinates*. Request that separate
-energy construction with `generate_ecc_energy(2, canonical_coordinates=True)`
-(907 topologies). It is not the energy of the unchanged input amplitudes with
-some terms arbitrarily discarded.
-
-The coordinate map leaves `S` unchanged and defines a new excitation operator
-`Σ` by `Σ|Φ₀⟩ = Q exp(S) T|Φ₀⟩`, where `Q` removes the reference component.
-Its inverse is `T|Φ₀⟩ = Q exp(-S) Σ|Φ₀⟩`. At singles–doubles truncation,
-`Σ₂=T₂` and `Σ₁=T₁+(S₁T₂)_{exc,1}`. The latter contraction absorbs the
-single-source S–T attachments that disappear from the canonical energy
-expansion. Both maps only lower excitation rank, so they preserve the common
-rank-complete space `1..n`. The two formulations therefore have identical
-energies at **mapped amplitudes** and corresponding stationary solutions,
-despite their different diagram counts. “Canonical” here refers to canonical
-conjugate amplitudes in the time-dependent bivariational equations—not to
-Hartree–Fock orbitals or graph sorting. Additional selected-amplitude
-restrictions require a separate check of closure under the coordinate map.
-
-This is a small-truncation reference enumerator. The full `n=2` operator
-has **8,743,171** topologies by independent Burnside coefficient counting;
-constructing its entire tuple list is expensive. Energy-only generation
-prunes annihilation sectors and enforces complete S contractions early.
-See the manuscript's ECC section for constraints, a uniqueness proof,
-termination bounds, and the orbit-counting method. Tests independently
-implement that count without listing graph representatives. The renderer
-supports both operator and scalar ECC tuples; the generator does not compute
-their algebraic weights.
-
-### CLI modes and JSON-to-Typst workflow
-
-```sh
-# Original equation CLI and JSON rank-object format are unchanged:
-python3 generate_kallay.py 2 --equation 1 --json
-
-# All other modes return a JSON array:
-python3 generate_kallay.py 2 --mode hbar --json > hbar.json
-python3 generate_kallay.py 1 --mode ecc --json > ecc.json
-python3 generate_kallay.py 2 --mode ecc-energy --json > energy.json
-python3 generate_kallay.py 2 --mode ecc-energy --canonical-coordinates --json > canonical-energy.json
-```
-
-`--equation` is valid only in equation mode; `--canonical-coordinates` is
-valid only with `--mode ecc-energy`. Without `--json`, each mode prints a
-comment header followed by one Python tuple per line. Full ECC enumeration
-at `n=2` already has millions of diagrams; prefer energy-only generation
-when appropriate.
-
-After generating `ecc.json`, place this Typst source beside it and `lib.typ`:
+Or install the generator separately and use `ccdiagrams-generate 1 --mode ecc --json`. Save the following as `render.typ` beside `ecc.json` and `lib.typ`:
 
 ```typ
 #import "lib.typ": goldstone
@@ -303,14 +155,26 @@ After generating `ecc.json`, place this Typst source beside it and `lib.typ`:
 )
 ```
 
-For equation JSON, select a rank first, e.g. `json("equations.json").at("2")`.
-No tuple conversion or orbital labels are needed.
+Compile with `typst compile render.typ render.pdf`. Equation-mode JSON is a rank-keyed object: select a rank first with `json("equations.json").at("2")`. Other modes produce arrays. No tuple conversion or orbital labels are needed. The generator enumerates topologies, not signs or algebraic weights. See the [paper repository](../ccdiagrams-paper/) for derivations and the distinction between original and canonical ECC amplitude coordinates.
 
-Run the generator and Typst regression tests with (Typst tests require `typst` on `PATH`):
+## Development and tests
+
+The seven self-contained rendering tests need Python 3.10+ and `typst` on `PATH`, but **not** the generator:
 
 ```sh
 python3 -m unittest discover -s tests -v
 ```
+
+Without the generator, the three generator-backed integration tests are explicitly skipped. Those tests compile all CCSDT equation tuples and small operator hierarchies, and check incidence, signatures, and port conservation for 2,081 rendering plans. To run all ten tests, install the generator as a **development-only** dependency (the requirements file assumes sibling checkouts):
+
+```sh
+uv venv .venv
+uv pip install --python .venv/bin/python -r requirements-dev.txt
+.venv/bin/python -c 'import generate_kallay'  # Ensure integration tests are enabled.
+.venv/bin/python -m unittest discover -s tests -v
+```
+
+Alternatively use `python3 -m venv .venv` and `.venv/bin/python -m pip install -r requirements-dev.txt`. For checkouts elsewhere, install `-e /path/to/ccdiagrams-generator` instead. Missing Typst skips the rendering tests; installing the generator never becomes a runtime requirement for drawing.
 
 ## Reference
 

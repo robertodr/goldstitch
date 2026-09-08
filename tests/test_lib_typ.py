@@ -1,4 +1,8 @@
-"""Compile-time regression tests for the Typst library."""
+"""Typst regressions; three integration tests optionally use the generator.
+
+Install requirements-dev.txt to enable all tests. The renderer itself and the
+remaining tests do not depend on the Python generator or a sibling checkout.
+"""
 
 from collections import Counter
 import json
@@ -8,9 +12,21 @@ import subprocess
 import tempfile
 import unittest
 
-from generate_kallay import (
-    generate_diagrams, generate_similarity_transformed, generate_ecc,
-    generate_ecc_energy, external_signature, ecc_external_signature,
+try:
+    from generate_kallay import (
+        generate_diagrams, generate_similarity_transformed, generate_ecc,
+        generate_ecc_energy, external_signature, ecc_external_signature,
+    )
+except ModuleNotFoundError as error:
+    if error.name != "generate_kallay":
+        raise
+    HAS_GENERATOR = False
+else:
+    HAS_GENERATOR = True
+
+requires_generator = unittest.skipUnless(
+    HAS_GENERATOR,
+    "install ccdiagrams-generator (requirements-dev.txt) for integration tests",
 )
 
 
@@ -35,6 +51,7 @@ class TypstTests(unittest.TestCase):
                         else [str(Path(directory) / "test.pdf")])
             return subprocess.run(command, capture_output=True, text=True, timeout=120)
 
+    @requires_generator
     def test_all_ccsdt_diagrams(self):
         codes = [
             " ".join("/".join(map(str, triplet)) for triplet in code[:-1])
@@ -63,6 +80,7 @@ class TypstTests(unittest.TestCase):
                 )
                 self.assertEqual(result.returncode, 0, result.stderr)
 
+    @requires_generator
     def test_operator_and_ecc_drawings(self):
         records = ([{"code": d, "mode": "operator"}
                     for d in generate_similarity_transformed(2)]
@@ -75,6 +93,7 @@ class TypstTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    @requires_generator
     def test_drawn_port_graphs(self):
         # Independent Python signatures versus the actual Typst rendering plan.
         # Include ALL original-coordinate SD energies (canonical is a subset).

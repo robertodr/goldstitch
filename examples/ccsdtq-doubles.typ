@@ -4,7 +4,8 @@
 #set text(size: 10pt)
 
 // All 38 antisymmetrized diagrams in the doubles (k = 2) equations of CCSDTQ.
-// Generated with: python3 generate_kallay.py 4 --equation 2
+// From the renderer repository root, with sibling checkouts:
+// python3 ../ccdiagrams-generator/generate_kallay.py 4 --equation 2
 #let diagrams = (
   ((0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0), 12),
   ((1, 1, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0), 9),

@@ -1,0 +1,4 @@
+# Only the three generator-backed integration tests need this dependency.
+# Assumes the agreed sibling-checkout layout. For a different layout, install
+# the generator with `python -m pip install -e /path/to/ccdiagrams-generator`.
+-e ../ccdiagrams-generator

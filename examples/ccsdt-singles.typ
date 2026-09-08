@@ -4,7 +4,8 @@
 #set text(size: 10pt)
 
 // All 15 antisymmetrized diagrams in the singles (k = 1) equations of CCSDT.
-// Generated with: python3 generate_kallay.py 3 --equation 1
+// From the renderer repository root, with sibling checkouts:
+// python3 ../ccdiagrams-generator/generate_kallay.py 3 --equation 1
 #let diagrams = (
   ((0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0), 11),
   ((1, 1, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0), 1),
