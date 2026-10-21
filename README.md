@@ -80,6 +80,7 @@ Trailing `000` amplitudes can be omitted, so `"220 4"` and `"220 000 000 000 4"`
   spacing: 7.5mm,
   level-gap: 4.5mm,
   stroke: 0.65pt,
+  hamiltonian-line: "default",
   mark-scale: 100%,
   arrows: "minimal",
   leg-angle: 20deg,
@@ -90,11 +91,52 @@ Trailing `000` amplitudes can be omitted, so `"220 4"` and `"220 000 000 000 4"`
 )
 ```
 
+### Hamiltonian lines
+
+Use `hamiltonian-line` to distinguish contraction intermediates without changing the diagram's topology. It works in equation, operator, and automatic modes. Particle/hole lines, cluster bars, and vertex markers keep their own styling.
+
+| Preset | Appearance |
+|:-------|:-----------|
+| `"default"` | Existing dashed line; also used when the option is omitted |
+| `"dashed"` | Alias for `"default"` |
+| `"solid"` | Single continuous line |
+| `"dotted"` | Round dotted line |
+| `"double"` | Two parallel continuous lines |
+| `"wavy"` | Continuous wave |
+
+For example:
+
+```typ
+#goldstone("221 10", mode: "operator", hamiltonian-line: "double")
+```
+
+For more control, pass a dictionary. `style` selects a preset and defaults to `"default"`; the remaining fields override its drawing options:
+
+```typ
+#goldstone(
+  "221 10",
+  mode: "operator",
+  hamiltonian-line: (
+    style: "dashed",
+    stroke: blue + 0.9pt,
+    dash: (array: (3pt, 1pt), phase: 0pt),
+  ),
+)
+```
+
+- **Stroke:** `stroke` accepts a Typst stroke, including color, thickness, and cap/join settings. Unless overridden, the Hamiltonian line has thickness `0.7 * stroke`, where the latter is the diagram-wide thickness.
+- **Dash pattern:** `dash` accepts Fletcher's dash settings, including `none`, `"dashed"`, `"dotted"`, or a custom `(array: ..., phase: ...)` dictionary. A dash specified inside a custom `stroke` takes precedence over the separate `dash` field, following Fletcher's behavior.
+- **Double-line spacing:** `extrude` sets the parallel-line offsets. For example, `(style: "double", extrude: (-1.5pt, 1.5pt))` gives 3 pt separation. The preset uses `(-2, 2)`, in units of the Hamiltonian stroke thickness.
+- **Wave geometry:** with `style: "wavy"`, use `wave: (amplitude: 2pt, segments: 4)` to adjust the wave. The `wave` dictionary accepts CeTZ wave-decoration options, including `segment-length`. By default, amplitude is 1 pt and the segment count adapts to the line's physical length, with at least two segments so short interactions remain drawable.
+- **Other decorations:** `decorations` accepts Fletcher's built-in decorations or a CeTZ decoration function. It overrides the preset decoration; `decorations: none` removes it. Other applicable named Fletcher edge options are forwarded as well. The `vertices` field is reserved because endpoints are determined by the diagram.
+
+See [`examples/hamiltonian-lines.typ`](examples/hamiltonian-lines.typ) and its [PDF](examples/hamiltonian-lines.pdf) for the presets in both layouts and custom intermediate styles.
+
 ### Equation layout
 
 #### Vertices and bars
 
-Each solid horizontal bar represents a cluster amplitude, with one particle–hole pair meeting the bar for every excitation rank. Filled black dots mark these attachment sites. The Hamiltonian is drawn as a dashed line with open circles at its fermionic endpoints.
+Each solid horizontal bar represents a cluster amplitude, with one particle–hole pair meeting the bar for every excitation rank. Filled black dots mark these attachment sites. The Hamiltonian is drawn as a dashed line by default, with open circles at its fermionic endpoints.
 
 For ranks above one, cluster bars end at their outermost attachment sites. A `T_1` bar extends by `t1-bar-extension` on either side of its single site. Set `labels: true` to show the `T` ranks and the Hamiltonian interaction number.
 
@@ -144,7 +186,7 @@ Layout selection:
 - `mode: "operator"`: forces the layered layout, including scalar and pure-creation sectors.
 - `mode: "equation"`: requires complete contraction of H annihilation lines and uses the equation layout.
 
-The layered layout puts T below H. Creation legs are short upward stubs; annihilation legs are short downward stubs. They do not share a projection boundary. Particle arrows run from creation to annihilation endpoints; hole arrows run oppositely. Coincident opposite-species contractions form curved lenses. Crossings without a marker are **not** vertices. T uses solid bars with filled black circles; H retains its dashed line and open circles. Dense diagrams can still have crossings.
+The layered layout puts T below H. Creation legs are short upward stubs; annihilation legs are short downward stubs. They do not share a projection boundary. Particle arrows run from creation to annihilation endpoints; hole arrows run oppositely. Coincident opposite-species contractions form curved lenses. Crossings without a marker are **not** vertices. T uses solid bars with filled black circles; H uses the selected Hamiltonian line style (dashed by default) and open circles. Dense diagrams can still have crossings.
 
 Styling options above also apply here; the layered defaults are `arrows: "all"` and `mark-scale: 85%`. Use `labels: true` for T ranks and H's vertex number, and `excitation-symbol` to customize the T label.
 
@@ -152,7 +194,7 @@ See [`examples/operators.typ`](examples/operators.typ) and its [PDF](examples/op
 
 ## Development and tests
 
-The seven self-contained rendering tests need Python 3.10+ and `typst` on `PATH`:
+The twelve self-contained rendering tests need Python 3.10+ and `typst` on `PATH`. These include SVG checks for Hamiltonian line styles, custom overrides, and unchanged default rendering:
 
 ```sh
 python3 -m unittest discover -s tests -v

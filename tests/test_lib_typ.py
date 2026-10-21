@@ -143,6 +143,7 @@ class TypstTests(unittest.TestCase):
     def test_operator_examples_and_input_forms(self):
         result = self.compile_source(
             '#include "/examples/operators.typ"\n'
+            '#include "/examples/hamiltonian-lines.typ"\n'
             '#assert(diagram-signature("211 10") == (1, 2, 1, 2))\n'
             '#assert(diagram-signature("12") == (2, 2, 0, 0))\n'
             '#assert(diagram-signature("242 10") == (0, 0, 0, 0))\n'
