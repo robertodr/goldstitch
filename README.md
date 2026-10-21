@@ -1,11 +1,11 @@
-# ccdiagrams
+# Goldstitch
 
 A **Typst drawing library** for antisymmetrized Goldstone diagrams of CC equations and similarity-transformed Hamiltonians. Diagrams use Kállay–Surján integer notation and are rendered with [Fletcher](https://typst.app/universe/package/fletcher/). Drawing requires Typst, not Python.
 
 ## Quick start
 
 ```typ
-#import "lib.typ": goldstone, kallay-label
+#import "@preview/goldstitch:0.1.0": goldstone, kallay-label
 
 #goldstone("220 000 000 000 4")
 #kallay-label("220 000 000 000 4")
@@ -15,15 +15,22 @@ A **Typst drawing library** for antisymmetrized Goldstone diagrams of CC equatio
 ```
 
 See [`examples/basic.typ`](examples/basic.typ) and its [PDF](examples/basic.pdf).
-From this repository root:
+The examples use the published package import. To build them against a working checkout before publication or during development, stage a temporary local package from this repository root:
 
 ```sh
-typst compile --root . examples/basic.typ examples/basic.pdf
-typst compile --root . examples/operators.typ examples/operators.pdf
+package_path="$(mktemp -d)"
+package_dir="$package_path/preview/goldstitch/0.1.0"
+mkdir -p "$package_dir"
+cp lib.typ typst.toml README.md LICENSE "$package_dir/"
+for example in basic operators hamiltonian-lines; do
+  typst compile --root . --package-path "$package_path" \
+    "examples/$example.typ" "examples/$example.pdf"
+done
+rm -r "$package_path"
 ```
 
 The library requires Typst 0.13.0 or later and imports `@preview/fletcher:0.5.8`.
-First use needs access to the Typst package registry unless the dependency is already cached. Development tests were last run with Typst 0.15.1.
+First use needs access to the Typst package registry unless the dependency is already cached. Development tests were last run with Typst 0.13.0 and 0.15.1.
 
 ## Kállay notation
 
@@ -170,7 +177,7 @@ The input tuple has a canonical order, but that order does not fix the left-to-r
 The same `goldstone` function accepts partial-contraction tuples without converting them to projected equation diagrams:
 
 ```typ
-#import "lib.typ": goldstone, diagram-signature
+#import "@preview/goldstitch:0.1.0": goldstone, diagram-signature
 
 #goldstone("10")       // Bare two-body annihilation vertex
 #goldstone("211 10")   // One T2; some H annihilators remain external
@@ -194,7 +201,9 @@ See [`examples/operators.typ`](examples/operators.typ) and its [PDF](examples/op
 
 ## Development and tests
 
-The twelve self-contained rendering tests need Python 3.10+ and `typst` on `PATH`. These include SVG checks for Hamiltonian line styles, custom overrides, and unchanged default rendering:
+The test suite lives in the [source repository](https://github.com/robertodr/ccdiagrams); it is not included in the published package.
+
+The fourteen self-contained tests need Python 3.10+ and `typst` on `PATH`. These include SVG checks for Hamiltonian line styles, custom overrides, unchanged default rendering, and isolated package imports that compile the README examples without access to the source checkout:
 
 ```sh
 python3 -m unittest discover -s tests -v

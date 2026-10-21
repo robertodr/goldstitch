@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SVG_PATH = ".//{http://www.w3.org/2000/svg}path"
+SVG_PATH = "{http://www.w3.org/2000/svg}path"
 
 
 @unittest.skipUnless(shutil.which("typst"), "typst is not installed")
@@ -33,7 +33,17 @@ class HamiltonianLineTests(unittest.TestCase):
                 capture_output=True, text=True, timeout=120,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            return [path.attrib for path in ET.parse(output).findall(SVG_PATH)]
+            def collect_paths(element, transforms=()):
+                # Typst 0.13 puts translations on groups; newer SVGs flatten
+                # them onto paths. Keep both so spacing checks use page space.
+                if "transform" in element.attrib:
+                    transforms += (element.attrib["transform"],)
+                if element.tag == SVG_PATH:
+                    yield {**element.attrib, "_transforms": transforms}
+                for child in element:
+                    yield from collect_paths(child, transforms)
+
+            return list(collect_paths(ET.parse(output).getroot()))
 
     def hamiltonian_paths(self, paths, *, width=0.455):
         # The Hamiltonian is thinner than all other stroked elements by default.
@@ -92,10 +102,16 @@ class HamiltonianLineTests(unittest.TestCase):
                     self.assertAlmostEqual(float(path["stroke-width"]), 0.9)
                     self.assertEqual(path["stroke-dasharray"], "3 1")
                     self.assertAlmostEqual(float(path["stroke-dashoffset"]), 0.5)
-                translations = [list(map(float, re.findall(
-                    r"-?\d+(?:\.\d+)?", path["transform"]))) for path in colored]
-                # SVG's one-argument translate(x) has an implicit zero y.
-                ys = [xy[1] if len(xy) == 2 else 0 for xy in translations]
+                ys = []
+                for path in colored:
+                    y = 0
+                    for transform in path["_transforms"]:
+                        self.assertTrue(transform.startswith("translate("), transform)
+                        xy = list(map(float, re.findall(
+                            r"-?\d+(?:\.\d+)?", transform)))
+                        # translate(x) has an implicit zero y.
+                        y += xy[1] if len(xy) == 2 else 0
+                    ys.append(y)
                 self.assertAlmostEqual(abs(ys[1] - ys[0]), 3)
                 # A dictionary without a style starts from the dashed default.
                 default = self.render(code, mode, '(stroke: rgb("d02090") + 0.9pt)')
@@ -142,7 +158,7 @@ class HamiltonianLineTests(unittest.TestCase):
                         capture_output=True, text=True, timeout=120,
                     )
                     self.assertNotEqual(result.returncode, 0)
-                    self.assertIn("ccdiagrams:", result.stderr)
+                    self.assertIn("goldstitch:", result.stderr)
                     self.assertIn(message, result.stderr)
 
 

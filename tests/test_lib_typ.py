@@ -44,8 +44,14 @@ class TypstTests(unittest.TestCase):
             )
             for name, content in (files or {}).items():
                 (Path(directory) / name).write_text(content, encoding="utf-8")
+            registry = Path(directory) / "registry"
+            package = registry / "preview" / "goldstitch" / "0.1.0"
+            package.mkdir(parents=True)
+            for name in ("typst.toml", "lib.typ", "README.md", "LICENSE"):
+                shutil.copy2(ROOT / name, package / name)
             command = ["typst", "query" if query else "compile",
-                       "--root", str(ROOT), str(source_path)]
+                       "--root", str(ROOT), "--package-path", str(registry),
+                       str(source_path)]
             command += (["<graphs>", "--field", "value"] if query
                         else [str(Path(directory) / "test.pdf")])
             return subprocess.run(command, capture_output=True, text=True, timeout=120)
@@ -170,7 +176,7 @@ class TypstTests(unittest.TestCase):
             with self.subTest(code=code):
                 result = self.compile_source(f'#goldstone({code})')
                 self.assertNotEqual(result.returncode, 0)
-                self.assertIn('ccdiagrams:', result.stderr)
+                self.assertIn('goldstitch:', result.stderr)
                 self.assertIn(message, result.stderr)
 
     def test_rejects_nested_inputs(self):
@@ -184,7 +190,7 @@ class TypstTests(unittest.TestCase):
                 for function in ("parse-diagram", "diagram-signature", "goldstone"):
                     result = self.compile_source(f'#{function}({code})')
                     self.assertNotEqual(result.returncode, 0)
-                    self.assertIn("ccdiagrams:", result.stderr)
+                    self.assertIn("goldstitch:", result.stderr)
 
     def test_malformed_triplets(self):
         for token, message in (
@@ -200,7 +206,7 @@ class TypstTests(unittest.TestCase):
             with self.subTest(token=token):
                 result = self.compile_source(f'#goldstone("{token} 4")')
                 self.assertNotEqual(result.returncode, 0)
-                self.assertIn("ccdiagrams:", result.stderr)
+                self.assertIn("goldstitch:", result.stderr)
                 self.assertIn(message, result.stderr)
 
     def test_invalid_amplitude_counts(self):
@@ -213,7 +219,7 @@ class TypstTests(unittest.TestCase):
             with self.subTest(code=code):
                 result = self.compile_source(f'#goldstone("{code}")')
                 self.assertNotEqual(result.returncode, 0)
-                self.assertIn("ccdiagrams:", result.stderr)
+                self.assertIn("goldstitch:", result.stderr)
                 self.assertIn(message, result.stderr)
 
 

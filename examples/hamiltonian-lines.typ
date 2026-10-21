@@ -1,4 +1,4 @@
-#import "../lib.typ": goldstone
+#import "@preview/goldstitch:0.1.0": goldstone
 #import "@preview/fletcher:0.5.8" as fletcher
 
 #set page(width: auto, height: auto, margin: 8mm)

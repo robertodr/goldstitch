@@ -1,4 +1,4 @@
-// Antisymmetrized Goldstone diagrams for coupled-cluster theory.
+// Goldstitch: antisymmetrized Goldstone diagrams for coupled-cluster theory.
 //
 // The compact input follows Kállay and Surján, J. Chem. Phys. 115, 2945
 // (2001), Eq. (8). Fletcher supplies the drawing primitives; this module
@@ -31,7 +31,7 @@
   (_up, _up),
 )
 
-#let _fail(message) = panic("ccdiagrams: " + message)
+#let _fail(message) = panic("goldstitch: " + message)
 
 #let _as-nonnegative-int(value, what) = {
   if type(value) != int or value < 0 {

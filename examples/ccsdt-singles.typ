@@ -1,4 +1,4 @@
-#import "../lib.typ": goldstone, kallay-label
+#import "@preview/goldstitch:0.1.0": goldstone, kallay-label
 
 #set page(width: auto, height: auto, margin: 8mm)
 #set text(size: 10pt)
