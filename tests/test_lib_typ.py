@@ -14,8 +14,7 @@ import unittest
 
 try:
     from generate_kallay import (
-        generate_diagrams, generate_similarity_transformed, generate_ecc,
-        generate_ecc_energy, external_signature, ecc_external_signature,
+        generate_diagrams, generate_similarity_transformed, external_signature,
     )
 except ModuleNotFoundError as error:
     if error.name != "generate_kallay":
@@ -81,10 +80,9 @@ class TypstTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
 
     @requires_generator
-    def test_operator_and_ecc_drawings(self):
-        records = ([{"code": d, "mode": "operator"}
-                    for d in generate_similarity_transformed(2)]
-                   + [{"code": d, "mode": "ecc"} for d in generate_ecc(1)])
+    def test_operator_drawings(self):
+        records = [{"code": d, "mode": "operator"}
+                   for d in generate_similarity_transformed(2)]
         result = self.compile_source(
             '#set page(width: auto, height: auto)\n'
             '#grid(columns: 8, gutter: 3mm, ..json("diagrams.json").map('
@@ -96,12 +94,8 @@ class TypstTests(unittest.TestCase):
     @requires_generator
     def test_drawn_port_graphs(self):
         # Independent Python signatures versus the actual Typst rendering plan.
-        # Include ALL original-coordinate SD energies (canonical is a subset).
         diagrams = generate_similarity_transformed(2)
         signatures = [external_signature(d) for d in diagrams]
-        ecc = generate_ecc(1) + generate_ecc_energy(2)
-        diagrams += ecc
-        signatures += [ecc_external_signature(d) for d in ecc]
         result = self.compile_source(
             '#metadata(json("diagrams.json").map(code => {\n'
             '  let graph = _operator-layout(parse-diagram(code))\n'
@@ -138,32 +132,25 @@ class TypstTests(unittest.TestCase):
                                      (s["creator"], s["annihilator"])
                                      if s["kind"] == "p" else
                                      (s["annihilator"], s["creator"]))
-                base, rows = code if len(code) == 2 else (code, ())
-                active = [a for a in base[:-1] if a[0]]
+                active = [a for a in code[:-1] if a[0]]
                 for j, (_, internal, particles) in enumerate(active):
                     ht = Counter(s["kind"] for s in segments
                                  if s["creator"].startswith(f"t{j}:")
                                  and s["annihilator"].startswith("h"))
                     self.assertEqual((ht["p"], ht["h"]),
                                      (particles, internal - particles))
-                for a, (_, pairs) in enumerate(rows):
-                    for j, expected in enumerate(pairs):
-                        prefix = "h" if j == 0 else f"t{j-1}:"
-                        used = Counter(s["kind"] for s in segments
-                                       if s["creator"].startswith(prefix)
-                                       and s["annihilator"].startswith(f"s{a}:"))
-                        self.assertEqual((used["p"], used["h"]), expected)
 
     def test_operator_examples_and_input_forms(self):
         result = self.compile_source(
             '#include "/examples/operators.typ"\n'
             '#assert(diagram-signature("211 10") == (1, 2, 1, 2))\n'
-            '#assert(diagram-signature((base: "12", rows: ((10, ((1, 1),)),)))'
-            ' == (1, 1, 9, 9))\n'
-            '#goldstone((base: "12", rows: ((10, ((1, 1),)),)),\n'
-            '  arrows: "minimal", level-gap: 8mm, leg-angle: 35deg, labels: true)\n'
-            '#goldstone(parse-diagram(("211 10", ())), labels: true, '
-            'excitation-symbol: $Sigma$)\n'
+            '#assert(diagram-signature("12") == (2, 2, 0, 0))\n'
+            '#assert(diagram-signature("242 10") == (0, 0, 0, 0))\n'
+            '#goldstone("12", mode: "operator", arrows: "minimal",\n'
+            '  level-gap: 8mm, leg-angle: 35deg, labels: true)\n'
+            '#goldstone(parse-diagram("211 10"), labels: true, '
+            'excitation-symbol: $T$)\n'
+            '#goldstone(parse-diagram("221 2"), mode: "equation")\n'
             '#goldstone(parse-diagram("221 2"), labels: true, '
             'excitation-symbol: $Sigma$)\n'
             '#goldstone((amplitudes: ((2, 1, 1),), interaction: 10))\n'
@@ -172,46 +159,10 @@ class TypstTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_s_vertex_styling(self):
-        result = self.compile_source(
-            '#import "/lib.typ": _cluster-decoration, _vertex-marker\n'
-            '#assert(_vertex-marker("s").shape == "rect")\n'
-            '#assert(_vertex-marker("s").fill == black)\n'
-            '#assert(_vertex-marker("s").stroke == none)\n'
-            '#assert(_vertex-marker("h").shape == "circle")\n'
-            '#assert(_vertex-marker("h").fill == white)\n'
-            '#assert(_vertex-marker("h").stroke != none)\n'
-            '#assert(_vertex-marker("t").shape == "circle")\n'
-            '#assert(_vertex-marker("t").fill == black)\n'
-            '#assert(_vertex-marker("t").stroke == none)\n'
-            '#assert(_cluster-decoration("t", 10pt) == none)\n'
-            '#for width in (5pt, 10pt, 24pt) {\n'
-            '  assert(type(_cluster-decoration("s", width)) == function)\n'
-            '}\n'
-            '#goldstone(("11", ((1, ((1, 1),)),)), '
-            'labels: true, t1-bar-extension: 0.2pt)\n'
-            '#goldstone(("12", ((3, ((2, 2),)),)), '
-            'labels: true, spacing: 6mm, level-gap: 8mm)\n'
-        )
-        self.assertEqual(result.returncode, 0, result.stderr)
-
-    def test_invalid_ecc_and_modes(self):
+    def test_invalid_modes(self):
         for code, message in (
-            ('(base: "12")', 'needs `base` and `rows`'),
-            ('(base: "12", rows: 2)', 'rows must be an array'),
-            ('("12", ((1,),))', 'each ECC row must be'),
-            ('("12", ((0, ((0, 0),)),))', 'S ranks must be positive'),
-            ('("12", ((true, ((1, 0),)),))', 'non-negative integer'),
-            ('("12", ((1, ((0, 0),)),))', 'every S vertex must touch'),
-            ('("12", ((1, ((2, 0),)),))', 'S contractions exceed its rank'),
-            ('("12", ((1, ((1, 0), (0, 0))),))', 'each active T vertex'),
-            ('("12", ((1, ((-1, 1),)),))', 'non-negative integer'),
-            ('("12", ((1, ((1, 0.5),)),))', 'non-negative integer'),
-            ('("12", ((1, ((1, 0, 0),)),))', 'particle/hole pair'),
-            ('("11", ((1, ((1, 0),)), (1, ((1, 0),))))', 'creation capacity'),
             ('"211 10", mode: "equation"', 'requires 2 particle and 2 hole'),
-            ('("11", ()), mode: "equation"', 'does not accept ECC tuples'),
-            ('"11", mode: "ecc"', 'ECC mode needs'),
+            ('"11", mode: "ecc"', '`mode` must be'),
             ('"11", mode: "invalid"', '`mode` must be'),
             ('"0", arrows: "invalid"', '`arrows` must be'),
         ):
@@ -220,6 +171,19 @@ class TypstTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn('ccdiagrams:', result.stderr)
                 self.assertIn(message, result.stderr)
+
+    def test_rejects_nested_inputs(self):
+        # Operator input must not silently accept de-excitation incidence rows.
+        for code in (
+            '("12", ((1, ((1, 1),)),))',
+            '(base: "12", rows: ((1, ((1, 1),)),))',
+            '("11", ())',
+        ):
+            with self.subTest(code=code):
+                for function in ("parse-diagram", "diagram-signature", "goldstone"):
+                    result = self.compile_source(f'#{function}({code})')
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("ccdiagrams:", result.stderr)
 
     def test_malformed_triplets(self):
         for token, message in (

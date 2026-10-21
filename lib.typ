@@ -2,8 +2,8 @@
 //
 // The compact input follows Kállay and Surján, J. Chem. Phys. 115, 2945
 // (2001), Eq. (8). Fletcher supplies the drawing primitives; this module
-// supplies the many-body vertex topology and layouts. Partial H contractions
-// use the same notation; ECC adds S incidence rows referring to H and active T.
+// supplies the many-body vertex topology and layouts. Partial Hamiltonian
+// contractions use the same notation as fully contracted equation diagrams.
 
 #import "@preview/fletcher:0.5.8" as fletcher: diagram, node, edge
 
@@ -514,7 +514,7 @@
   best
 }
 
-// Prefer an H–cluster contraction (T or S), even for a hole-only connection.
+// Prefer an H–T contraction, even for a hole-only connection.
 // Bare interactions and diagrams with only bent contractions fall back to a
 // straight external H leg. Closed lenses remain unmarked in minimal mode.
 #let _minimal-arrow(segments, aspect) = {
@@ -524,8 +524,7 @@
     at-h and segment.at("bend", default: 0deg) == 0deg
   }).sorted(key: index => {
     let segment = segments.at(index)
-    let internal = (segment.tail.starts-with("t") or segment.head.starts-with("t")
-      or segment.tail.starts-with("s") or segment.head.starts-with("s"))
+    let internal = segment.tail.starts-with("t") or segment.head.starts-with("t")
     let dx = segment.to.at(0) - segment.from.at(0)
     let dy = (segment.to.at(1) - segment.from.at(1)) * aspect
     (if internal { 0 } else { 1 }, if segment.kind == "p" { 0 } else { 1 },
@@ -813,82 +812,26 @@
   kinds.map(kind => (kind: kind, group-index: i, shape: group.shape))
 }).sum(default: ())
 
-// Accept the existing Kallay forms, nested ECC (base, rows) arrays (including
-// json() output), or an ECC dictionary (base: ..., rows: ...). Do not reorder
-// T columns or S rows: incidence refers to the input's active T positions.
+// Accept Kállay strings, structured arrays (including json() output), parsed
+// dictionaries, and our normalized output. Revalidate cached models too.
 #let parse-diagram(code) = {
-  // Accept our normalized output too, revalidating rather than trusting cached
-  // capacities. The original base retains its canonical active-column order.
-  if type(code) == dictionary and "base-code" in code {
-    code = if code.kind == "ecc" {
-      (base: code.base-code, rows: code.rows.map(row => (row.rank, row.pairs)))
-    } else { code.base-code }
-  }
-  let ecc = ((type(code) == array and code.len() == 2 and type(code.last()) == array)
-    or (type(code) == dictionary and ("base" in code or "rows" in code)))
-  let base = code
-  let rows = ()
-  if ecc {
-    if type(code) == dictionary {
-      if "base" not in code or "rows" not in code {
-        _fail("an ECC dictionary needs `base` and `rows` fields")
-      }
-      base = code.base
-      rows = code.rows
-    } else { (base, rows) = code }
-  }
-  let model = _validate(parse-kallay(base), complete: false)
+  if type(code) == dictionary and "base-code" in code { code = code.base-code }
+  let model = _validate(parse-kallay(code), complete: false)
   let upper = _upper-ports(model.topology)
   let capacities = ((upper.filter(it => it.kind == "p").len(),
     upper.filter(it => it.kind == "h").len()),)
   capacities += model.amplitudes.map(a => (a.rank - a.particles, a.rank - a.holes))
-  if type(rows) != array { _fail("ECC rows must be an array") }
-  let used = ((0, 0),) * capacities.len()
-  let validated = ()
-  for (a, row) in rows.enumerate() {
-    if type(row) != array or row.len() != 2 {
-      _fail("each ECC row must be (rank, incidence-pairs)")
-    }
-    let rank = _as-nonnegative-int(row.first(), "S rank")
-    if rank == 0 { _fail("S ranks must be positive; S rows have no padding") }
-    let pairs = row.last()
-    if type(pairs) != array or pairs.len() != capacities.len() {
-      _fail("each S row needs one pair for H and each active T vertex")
-    }
-    let total = (0, 0)
-    for (j, pair) in pairs.enumerate() {
-      if type(pair) != array or pair.len() != 2 {
-        _fail("each S incidence entry must be a particle/hole pair")
-      }
-      for k in range(2) {
-        let value = _as-nonnegative-int(pair.at(k), "S incidence count")
-        total.at(k) += value
-        used.at(j).at(k) += value
-        if used.at(j).at(k) > capacities.at(j).at(k) {
-          _fail("S incidences exceed creation capacity of source " + str(j))
-        }
-      }
-    }
-    if total.sum() == 0 { _fail("every S vertex must touch H or a T vertex") }
-    if total.any(it => it > rank) { _fail("S contractions exceed its rank") }
-    validated.push((rank: rank, pairs: pairs, particles: total.first(), holes: total.last()))
-  }
-  model + (kind: if ecc { "ecc" } else { "operator" }, base-code: base,
-    rows: validated, capacities: capacities, used: used)
+  model + (base-code: code, capacities: capacities)
 }
 
 #let _signature(model) = {
   let lower = _lower-ports(model.topology)
-  let cp = (model.capacities.map(it => it.first()).sum()
-    - model.used.map(it => it.first()).sum())
-  let ch = (model.capacities.map(it => it.last()).sum()
-    - model.used.map(it => it.last()).sum())
+  let cp = model.capacities.map(it => it.first()).sum()
+  let ch = model.capacities.map(it => it.last()).sum()
   let ap = (lower.filter(it => it.kind == "p").len()
-    - model.amplitudes.map(it => it.particles).sum(default: 0)
-    + model.rows.map(it => it.rank - it.particles).sum(default: 0))
+    - model.amplitudes.map(it => it.particles).sum(default: 0))
   let ah = (lower.filter(it => it.kind == "h").len()
-    - model.amplitudes.map(it => it.holes).sum(default: 0)
-    + model.rows.map(it => it.rank - it.holes).sum(default: 0))
+    - model.amplitudes.map(it => it.holes).sum(default: 0))
   (cp, ch, ap, ah)
 }
 
@@ -896,37 +839,29 @@
 #let diagram-signature(code) = _signature(parse-diagram(code))
 
 // Geometry is deliberately inspectable: regression tests reconstruct all
-// H--T and S incidences from the SAME segments consumed by the renderer.
+// H--T incidences from the SAME segments consumed by the renderer.
 #let _operator-layout(model, aspect: 0.6, leg-angle: 20deg, loop-bend: 75deg) = {
   let vertices = ()
   let bars = ()
   let sources = ()
-  let sinks = ()
-  // Rank-r bars have r sites, each with exactly one p and one h port.
-  for (family, clusters, y) in (("t", model.amplitudes, 1.6), ("s", model.rows, -1.6)) {
-    let placements = _place-clusters(clusters.enumerate().map(((i, a)) =>
-      (amplitude: a, original-index: i)))
-    for placement in placements {
-      let id = family + str(placement.original-index)
-      let ports = (p: (), h: ())
-      for (k, x) in placement.pair-xs.enumerate() {
-        let site = (id: id + ":" + str(k), at: (x, y), family: family)
-        vertices.push(site)
-        ports.p.push(site)
-        ports.h.push(site)
-      }
-      bars.push((id: id, family: family, rank: placement.amplitude.rank,
-        xs: placement.pair-xs, y: y, center: placement.center))
-      if family == "t" { sources.push(ports) } else { sinks.push(ports) }
+  // Rank-r T bars have r sites, each with exactly one p and one h port.
+  let y = 1.6
+  let placements = _place-clusters(model.amplitudes.enumerate().map(((i, a)) =>
+    (amplitude: a, original-index: i)))
+  for placement in placements {
+    let id = "t" + str(placement.original-index)
+    let ports = (p: (), h: ())
+    for (k, x) in placement.pair-xs.enumerate() {
+      let site = (id: id + ":" + str(k), at: (x, y), family: "t")
+      vertices.push(site)
+      ports.p.push(site)
+      ports.h.push(site)
     }
+    bars.push((id: id, family: "t", rank: placement.amplitude.rank,
+      xs: placement.pair-xs, y: y, center: placement.center))
+    sources.push(ports)
   }
-  // With both families present, H sits beside the T--S corridor. Otherwise
-  // a direct T--S edge could pass through an unrelated open H circle and
-  // falsely appear to contract there. Crossings elsewhere are not vertices.
-  let center = if sources.len() > 0 and sinks.len() > 0 {
-    vertices.map(it => it.at.first()).sorted().first() - 1.0
-  } else { 0.0 }
-  let group-x = _spread(center, 0.52 * (model.topology.len() - 1), model.topology.len())
+  let group-x = _spread(0.0, 0.52 * (model.topology.len() - 1), model.topology.len())
   let h-sites = group-x.enumerate().map(((j, x)) =>
     (id: "h" + str(j), at: (x, 0.0), family: "h"))
   vertices += h-sites
@@ -957,22 +892,11 @@
     }
   }
   sources = (h-upper,) + sources
-  for (a, row) in model.rows.enumerate() {
-    for (j, pair) in row.pairs.enumerate() {
-      for (kind, count) in (("p", pair.first()), ("h", pair.last())) {
-        for k in range(count) {
-          let creator = sources.at(j).at(kind).remove(0)
-          let annihilator = sinks.at(a).at(kind).remove(0)
-          segments.push(connection(creator, annihilator, kind))
-        }
-      }
-    }
-  }
   // Short open stubs, upward for creation and downward for annihilation.
   // They need not reach a common projection boundary in an operator diagram.
   let reach = 0.6
   let fan = calc.tan(leg-angle / 2) * reach * aspect
-  for (ports, creation) in ((sources, true), ((h-lower,) + sinks, false)) {
+  for (ports, creation) in ((sources, true), ((h-lower,), false)) {
     for vertex-ports in ports {
       for kind in ("p", "h") {
         for site in vertex-ports.at(kind) {
@@ -1001,20 +925,6 @@
   (vertices: vertices, bars: bars, segments: segments, group-x: group-x)
 }
 
-// Physical wave dimensions keep S distinct even on a short singles vertex.
-// A fixed segment count avoids the preset decoration's minimum-path-length
-// restriction; the filled square is painted above the wave and fermion joins.
-#let _cluster-decoration(family, width) = if family == "s" {
-  fletcher.cetz.decorations.wave.with(amplitude: 1.6pt,
-    segments: calc.max(2, int(calc.round(width / 4pt))))
-} else { none }
-
-#let _vertex-marker(family) = (
-  shape: if family == "s" { "rect" } else { "circle" },
-  fill: if family == "h" { white } else { black },
-  stroke: if family == "h" { 0.65pt + black } else { none },
-)
-
 #let _operator-goldstone(
   model, spacing: 7.5mm, level-gap: 4.5mm, stroke: 0.65pt,
   labels: false, excitation-symbol: $T$,
@@ -1033,21 +943,14 @@
   for bar in layout.bars {
     let left = (bar.xs.first(), bar.y)
     let right = (bar.xs.last(), bar.y)
-    let width = (bar.xs.last() - bar.xs.first()) * spacing
     if bar.rank == 1 {
-      // Leave a visible wave on each side of the filled S1 square.
-      let extension = if bar.family == "s" { 5pt } else { t1-bar-extension }
-      width = 2 * extension
-      left = (rel: (180deg, extension), to: left)
-      right = (rel: (0deg, extension), to: right)
+      left = (rel: (180deg, t1-bar-extension), to: left)
+      right = (rel: (0deg, t1-bar-extension), to: right)
     }
-    objects.push(edge(left, right, stroke: stroke, snap-to: (none, none),
-      decorations: _cluster-decoration(bar.family, width), layer: 2))
+    objects.push(edge(left, right, stroke: stroke, snap-to: (none, none), layer: 2))
     if labels {
-      let symbol = if bar.family == "t" { excitation-symbol } else { $S$ }
-      let offset = if bar.family == "t" { 0.45 } else { -0.45 }
-      objects.push(node((bar.center, bar.y + offset), $#symbol _#(bar.rank)$,
-        inset: 0pt, snap: false))
+      objects.push(node((bar.center, bar.y + 0.45),
+        $#excitation-symbol _#(bar.rank)$, inset: 0pt, snap: false))
     }
   }
   let left = layout.group-x.first()
@@ -1055,8 +958,9 @@
   objects.push(edge((left, 0), (right, 0), stroke: 0.7 * stroke,
     dash: (array: (1pt, 1.25pt), phase: 0pt), snap-to: (none, none), layer: 1))
   for vertex in layout.vertices {
-    objects.push(node(vertex.at, radius: 1.275pt,
-      .._vertex-marker(vertex.family),
+    objects.push(node(vertex.at, shape: "circle", radius: 1.275pt,
+      fill: if vertex.family == "h" { white } else { black },
+      stroke: if vertex.family == "h" { 0.65pt + black } else { none },
       inset: 0pt, snap: false, layer: 4))
   }
   if labels {
@@ -1068,21 +972,18 @@
 }
 
 // Auto preserves the established equation layout for fully contracted H lower
-// legs. Partially contracted operators and nonempty ECC decorations use the
-// port-graph renderer. Explicit `mode: "operator"` forces that layout even for
-// pure-creation sectors; `mode: "equation"` keeps the old strict validation.
+// legs. Partially contracted operators use the port-graph renderer. Explicit
+// `mode: "operator"` forces that layout even for pure-creation sectors;
+// `mode: "equation"` requires complete Hamiltonian annihilation contractions.
 #let goldstone(code, mode: "auto", ..options) = {
-  if mode not in ("auto", "equation", "operator", "ecc") {
-    _fail("`mode` must be `auto`, `equation`, `operator`, or `ecc`")
+  if mode not in ("auto", "equation", "operator") {
+    _fail("`mode` must be `auto`, `equation`, or `operator`")
   }
   let model = parse-diagram(code)
-  if mode == "ecc" and model.kind != "ecc" { _fail("ECC mode needs (base, rows)") }
   if mode == "equation" {
-    if model.kind == "ecc" { _fail("equation mode does not accept ECC tuples") }
-    return _equation-goldstone(code, ..options)
+    return _equation-goldstone(model.base-code, ..options)
   }
-  if (mode == "auto" and model.rows.len() == 0
-      and _signature(model).slice(2) == (0, 0)) {
+  if mode == "auto" and _signature(model).slice(2) == (0, 0) {
     return _equation-goldstone(model.base-code, ..options)
   }
   _operator-goldstone(model, ..options)
