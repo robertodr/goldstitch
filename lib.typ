@@ -1,4 +1,4 @@
-// Antisymmetrized Goldstone diagrams for coupled-cluster theory.
+// Goldstitch: antisymmetrized Goldstone diagrams for coupled-cluster theory.
 //
 // The compact input follows Kállay and Surján, J. Chem. Phys. 115, 2945
 // (2001), Eq. (8). Fletcher supplies the drawing primitives; this module
@@ -31,7 +31,7 @@
   (_up, _up),
 )
 
-#let _fail(message) = panic("ccdiagrams: " + message)
+#let _fail(message) = panic("goldstitch: " + message)
 
 #let _as-nonnegative-int(value, what) = {
   if type(value) != int or value < 0 {
@@ -230,6 +230,45 @@
     snap-to: (none, none),
     // The midpoint is unchanged when particle edges are reversed.
     marks: if mark { ((inherit: "solid", size: 5, pos: 0.5),) } else { () })
+}
+
+// The Hamiltonian has the same independently styled edge in both layouts.
+// Presets supply defaults; dictionary fields override Fletcher edge options.
+#let _hamiltonian-edge(from, to, line, stroke, spacing) = {
+  let custom = if type(line) == str { (style: line) }
+    else if type(line) == dictionary { line }
+    else { _fail("`hamiltonian-line` must be a string or dictionary") }
+  let style = custom.remove("style", default: "default")
+  if style not in ("default", "dashed", "solid", "dotted", "double", "wavy") {
+    _fail("unknown Hamiltonian line style " + repr(style)
+      + "; expected `default`, `dashed`, `solid`, `dotted`, `double`, or `wavy`")
+  }
+  if "vertices" in custom {
+    _fail("Hamiltonian `vertices` are determined by the diagram topology")
+  }
+  let wave = custom.remove("wave", default: (:))
+  if type(wave) != dictionary { _fail("`wave` must be a dictionary") }
+  if wave.len() > 0 and style != "wavy" {
+    _fail("`wave` options require the `wavy` style")
+  }
+  let options = (
+    stroke: 0.7 * stroke,
+    dash: if style in ("default", "dashed") {
+      (array: (1pt, 1.25pt), phase: 0pt)
+    } else if style == "dotted" { "dotted" } else { none },
+    snap-to: (none, none),
+    layer: 1,
+  )
+  if style == "double" { options.extrude = (-2, 2) }
+  if style == "wavy" {
+    // Count waves explicitly so short one-endpoint interactions work too.
+    let width = calc.abs(to.at(0) - from.at(0)) * spacing
+    let geometry = (amplitude: 1pt,
+      segments: calc.max(2, int(calc.round(width / 4pt)))) + wave
+    options.decorations = fletcher.cetz.decorations.wave.with(..geometry)
+  }
+  options += custom
+  edge(from, to, ..options)
 }
 
 // Attach `targets.len()` of the `sources` abscissae to the targets.
@@ -544,6 +583,7 @@
   spacing: 7.5mm,
   level-gap: 4.5mm,
   stroke: 0.65pt,
+  hamiltonian-line: "default",
   labels: false,
   excitation-symbol: $T$,
   mark-scale: 100%,
@@ -769,17 +809,16 @@
       mark: arrows == "all" or index in marked))
   }
 
-  // Dashed interaction line. A single endpoint has the conventional dangling
+  // Hamiltonian line. A single endpoint has the conventional dangling
   // segment to its right.
   let dash-left = group-xs.first()
   let dash-right = if group-xs.len() == 1 { dash-left + 0.52 }
     else { group-xs.last() }
-  objects.push(edge((dash-left, h-y), (dash-right, h-y), stroke: 0.7 * stroke,
-    dash: (array: (1pt, 1.25pt), phase: 0pt),
-    snap-to: (none, none), layer: 1))
+  objects.push(_hamiltonian-edge((dash-left, h-y), (dash-right, h-y),
+    hamiltonian-line, stroke, spacing))
 
   // Open Hamiltonian vertices cover the joins between solid fermion lines and
-  // the dashed interaction edge.
+  // the interaction edge.
   for x in group-xs {
     objects.push(node((x, h-y), shape: "circle", radius: 1.275pt,
       fill: white, stroke: 0.65pt + black, inset: 0pt,
@@ -927,7 +966,7 @@
 
 #let _operator-goldstone(
   model, spacing: 7.5mm, level-gap: 4.5mm, stroke: 0.65pt,
-  labels: false, excitation-symbol: $T$,
+  hamiltonian-line: "default", labels: false, excitation-symbol: $T$,
   mark-scale: 85%, arrows: "all", leg-angle: 20deg,
   loop-bend: 75deg, t1-bar-extension: 2.5pt, debug: false,
 ) = {
@@ -955,8 +994,8 @@
   }
   let left = layout.group-x.first()
   let right = if layout.group-x.len() == 1 { left + 0.52 } else { layout.group-x.last() }
-  objects.push(edge((left, 0), (right, 0), stroke: 0.7 * stroke,
-    dash: (array: (1pt, 1.25pt), phase: 0pt), snap-to: (none, none), layer: 1))
+  objects.push(_hamiltonian-edge((left, 0), (right, 0),
+    hamiltonian-line, stroke, spacing))
   for vertex in layout.vertices {
     objects.push(node(vertex.at, shape: "circle", radius: 1.275pt,
       fill: if vertex.family == "h" { white } else { black },

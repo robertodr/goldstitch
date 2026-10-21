@@ -1,4 +1,4 @@
-#import "../lib.typ": goldstone, diagram-signature, kallay-label
+#import "@preview/goldstitch:0.1.0": goldstone, diagram-signature, kallay-label
 
 #set page(width: 190mm, height: auto, margin: 10mm)
 #set text(size: 10pt)
