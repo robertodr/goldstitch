@@ -2,16 +2,6 @@
 
 A **Typst drawing library** for antisymmetrized Goldstone diagrams of CC equations and similarity-transformed Hamiltonians. Diagrams use Kállay–Surján integer notation and are rendered with [Fletcher](https://typst.app/universe/package/fletcher/). Drawing requires Typst, not Python.
 
-The project is maintained in three independent sibling repositories:
-
-| Repository | Contents |
-|:-----------|:---------|
-| **ccdiagrams** (this repository) | `lib.typ`, Typst package metadata, examples, rendering tests |
-| [ccdiagrams-generator](../ccdiagrams-generator/) | Python generator, CLI, enumeration and counting tests |
-| [ccdiagrams-paper](../ccdiagrams-paper/) | Manuscript, bibliography, compiled PDF, reproduction instructions |
-
-The existing combined-project Git history remains here. The generator and paper started with snapshots of the split state; their current sources are no longer duplicated here. The library is hosted at [robertodr/ccdiagrams](https://github.com/robertodr/ccdiagrams). Generator and paper links above assume sibling checkouts.
-
 ## Quick start
 
 ```typ
@@ -100,7 +90,38 @@ Trailing `000` amplitudes can be omitted, so `"220 4"` and `"220 000 000 000 4"`
 )
 ```
 
-**Equation layout.** Particles point out of a `T` vertex and holes point into it. At every vertex one fermion line arrives and one leaves, so the drawn segments join into continuous fermion lines: open paths that begin and end outside the diagram, and closed loops. By default, `arrows: "minimal"` places one arrow on a straight fermion segment attached to the Hamiltonian vertex, never on a bent particle–hole loop. It prefers a straight Hamiltonian–cluster contraction over any external segment, then prefers particles over holes and longer segments over shorter ones. If there is no straight contraction, it falls back to a straight external Hamiltonian leg. `"all"` marks every segment. Filled black dots mark every fermion attachment to a cluster bar; open circles mark the fermionic endpoints of the dashed Hamiltonian vertex. The validated tuple order is canonical rather than spatial: cluster vertices are initially grouped by their Hamiltonian attachments, with mirrored tie-breaking for symmetric halves. The layout then compares whole-bar orders to minimize crossings between the dashed interaction and open cluster legs, keeping distinct Hamiltonian endpoints and retaining the initial order on ties. Upper-only Hamiltonian endpoints also switch sides when this avoids an open-leg crossing. Hamiltonian endpoints are centered over their actual attachment sites, keeping closed particle–hole lenses vertical and shared contractions balanced. Shared lower endpoints are nudged away from open legs when needed for clearance, preferably outward to retain space between Hamiltonian endpoints, without changing contraction sides or moving closed lenses. Fully open hole–particle pairs sharing a cluster attachment site are grouped at the left or right end of the bar. In multi-cluster diagrams they face toward the nearest outside edge of the whole cluster row, rather than into the gaps between bars; for a lone or centered bar, the side that shortens contractions is chosen. This rule does not apply to singly open legs: the relative order of contracted sites and existing particle–hole pairings is preserved. The single-`T_1` realization of interaction 5 uses its equivalent split layout, with an upper V at one end of the interaction line and the lower particle–hole pair at the other. Contractions of one species are initially matched to cluster vertices by a minimal-displacement, order-preserving assignment, then attachment sites are reordered to keep fully open pairs outside. Topology-required crossings are retained. Each solid horizontal bar is a cluster amplitude, with one particle–hole pair meeting the bar for every excitation rank. Bars end at their outermost vertices for ranks above one; `T_1` bars extend by `t1-bar-extension` on either side of their sole vertex. `leg-angle` controls the preferred opening angle at a cluster vertex; the default produces the steep symmetric 80°–20°–80° geometry. `loop-bend` sets the opening of the lens drawn between a particle and a hole line that contract the same cluster vertex with the same Hamiltonian vertex. Through-lines continue straight across the Hamiltonian endpoint, with the contracted and free legs forming a symmetric V at the cluster vertex. Set `labels: true` to show `T` ranks and the interaction serial number.
+### Equation layout
+
+#### Vertices and bars
+
+Each solid horizontal bar represents a cluster amplitude, with one particle–hole pair meeting the bar for every excitation rank. Filled black dots mark these attachment sites. The Hamiltonian is drawn as a dashed line with open circles at its fermionic endpoints.
+
+For ranks above one, cluster bars end at their outermost attachment sites. A `T_1` bar extends by `t1-bar-extension` on either side of its single site. Set `labels: true` to show the `T` ranks and the Hamiltonian interaction number.
+
+#### Arrows
+
+Particles point out of a `T` vertex and holes point into it. At each fermionic vertex, one line arrives and one leaves. The segments therefore form continuous paths: either open paths with both ends outside the diagram, or closed loops.
+
+The `arrows` option controls how many arrowheads are shown:
+
+- `"minimal"` (default) places one arrow on a straight segment attached to the Hamiltonian, never on a curved particle–hole loop. It prefers an internal Hamiltonian–cluster contraction, falling back to an external Hamiltonian leg when no straight contraction is available. Within those choices, it prefers particles over holes, then longer segments over shorter ones.
+- `"all"` places an arrow on every segment.
+
+#### Geometry controls
+
+- **Leg opening:** `leg-angle` sets the preferred opening angle at a cluster vertex. The default gives the steep, symmetric 80°–20°–80° geometry.
+- **Particle–hole lenses:** `loop-bend` sets the opening of the curved lens formed when a particle and a hole connect the same cluster site to the same Hamiltonian endpoint.
+- **Through-lines:** a line passing through a Hamiltonian endpoint continues straight, without a kink. Its contracted part and the free leg form a symmetric V at the cluster vertex.
+
+#### Automatic placement
+
+The input tuple has a canonical order, but that order does not fix the left-to-right positions of the cluster bars. The renderer arranges them to keep the diagram balanced and reduce avoidable crossings:
+
+- **Cluster order:** bars are initially grouped by their Hamiltonian attachments, using mirrored tie-breaking for symmetric halves. The renderer then compares whole-bar orders to reduce crossings between the dashed Hamiltonian line and open cluster legs. Hamiltonian endpoints remain distinct, and ties retain the initial order. Endpoints with only upper legs may switch sides to avoid an open-leg crossing.
+- **Contraction assignment:** lines of the same species are initially matched to cluster sites in left-to-right order, minimizing horizontal displacement. Attachment sites are then reordered to keep fully open particle–hole pairs outside. Crossings required by the topology are retained.
+- **Hamiltonian alignment:** endpoints are centered over their actual attachment sites, keeping closed lenses vertical and shared contractions balanced. Shared lower endpoints may move away from open legs for clearance, preferably outward to preserve space between Hamiltonian endpoints. These adjustments do not reverse contraction sides or move closed lenses.
+- **Open pairs:** fully open particle–hole pairs sharing a cluster site are grouped at one end of the bar. With multiple clusters, they face the nearest outside edge of the whole row rather than a gap between bars. For a lone or centered bar, the renderer chooses the side that shortens contractions. Singly open legs are not regrouped; the relative order of contracted sites and existing particle–hole pairings is preserved.
+- **Interaction 5 with a single `T_1`:** the renderer uses the equivalent split form, with an upper V at one Hamiltonian endpoint and the lower particle–hole pair at the other.
 
 ## Operator rendering
 
@@ -129,45 +150,17 @@ Styling options above also apply here; the layered defaults are `arrows: "all"` 
 
 See [`examples/operators.typ`](examples/operators.typ) and its [PDF](examples/operators.pdf) for all thirteen bare vertices, partial contractions, and a scalar correlation-energy term.
 
-## Generating input in the separate repository
-
-The Python generator and its APIs now live in [ccdiagrams-generator](../ccdiagrams-generator/). No Python module is bundled with this library. With sibling checkouts, run from this repository root:
-
-```sh
-python3 ../ccdiagrams-generator/generate_kallay.py 2 --mode hbar --json > operators.json
-```
-
-Or install the generator separately and use `ccdiagrams-generate 2 --mode hbar --json`. Save the following as `render.typ` beside `operators.json` and `lib.typ`:
-
-```typ
-#import "lib.typ": goldstone
-#set page(width: auto, height: auto)
-#let diagrams = json("operators.json")
-#grid(columns: 4, gutter: 4mm,
-  ..diagrams.slice(0, calc.min(24, diagrams.len())).map(d => goldstone(d)),
-)
-```
-
-Compile with `typst compile render.typ render.pdf`. Equation-mode JSON is a rank-keyed object: select a rank first with `json("equations.json").at("2")`. Operator mode produces an array. No tuple conversion or orbital labels are needed. The generator enumerates topologies, not signs or algebraic weights. See the [paper repository](../ccdiagrams-paper/) for derivations.
-
 ## Development and tests
 
-The seven self-contained rendering tests need Python 3.10+ and `typst` on `PATH`, but **not** the generator:
+The seven self-contained rendering tests need Python 3.10+ and `typst` on `PATH`:
 
 ```sh
 python3 -m unittest discover -s tests -v
 ```
 
-Without the generator, the three generator-backed integration tests are explicitly skipped. Those tests compile all CCSDT equation tuples and small operator hierarchies, and check incidence, signatures, and port conservation for operator rendering plans. To run all ten tests, install the generator as a **development-only** dependency (the requirements file assumes sibling checkouts):
+Three additional integration tests require a compatible diagram generator, which is not bundled here. They are explicitly skipped when it is unavailable. These tests compile CCSDT equation tuples and small operator hierarchies, checking incidence, signatures, and port conservation.
 
-```sh
-uv venv .venv
-uv pip install --python .venv/bin/python -r requirements-dev.txt
-.venv/bin/python -c 'import generate_kallay'  # Ensure integration tests are enabled.
-.venv/bin/python -m unittest discover -s tests -v
-```
-
-Alternatively use `python3 -m venv .venv` and `.venv/bin/python -m pip install -r requirements-dev.txt`. For checkouts elsewhere, install `-e /path/to/ccdiagrams-generator` instead. Missing Typst skips the rendering tests; installing the generator never becomes a runtime requirement for drawing.
+Missing Typst skips the rendering tests. Python and the optional generator are development tools only; neither is required for drawing diagrams.
 
 ## Reference
 
